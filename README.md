@@ -1,8 +1,12 @@
-## Utility-Library [![Build Status](https://travis-ci.org/RippeR37/Utility-Library.svg?branch=master)](https://travis-ci.org/RippeR37/Utility-Library)
+## GLUL - OpenGL Utility Library
 
-Utility library written in C++11 to simplify usage of OpenGL.
+| Branch | Linux | Windows | Coverage | Download |
+| :----: | :---: | :-----: | :------: | :------: |
+| Master | [![Build Status](https://travis-ci.org/RippeR37/GLUL.svg?branch=master)](https://travis-ci.org/RippeR37/GLUL) | [![Build status](https://ci.appveyor.com/api/projects/status/950gw1wrdvxgx1j1/branch/master?svg=true)](https://ci.appveyor.com/project/RippeR37/glul/branch/master) | [![Coverage Status](https://coveralls.io/repos/RippeR37/GLUL/badge.svg?branch=master)](https://coveralls.io/github/RippeR37/GLUL?branch=master) | [ ![Download](https://api.bintray.com/packages/ripper37/generic/GLUL/images/download.svg) ](https://bintray.com/ripper37/generic/GLUL/_latestVersion#files) |
+| Develop | [![Build Status](https://travis-ci.org/RippeR37/GLUL.svg?branch=develop)](https://travis-ci.org/RippeR37/GLUL) | [![Build status](https://ci.appveyor.com/api/projects/status/950gw1wrdvxgx1j1/branch/develop?svg=true)](https://ci.appveyor.com/project/RippeR37/glul/branch/develop) | [![Coverage Status](https://coveralls.io/repos/RippeR37/GLUL/badge.svg?branch=develop)](https://coveralls.io/github/RippeR37/GLUL?branch=develop) | [ ![Download](https://api.bintray.com/packages/ripper37/generic/GLUL/images/download.svg) ](https://bintray.com/ripper37/generic/GLUL/_latestVersion#files) |
 
-Library provides:
+
+### Main features
 - Object-oriented wrapper for OpenGL functionality
     - provides type-safety using strongly typed enumerations
 - Window creation and management
@@ -131,10 +135,10 @@ Documentation for each module should be created soon.
 - [zlib](http://www.zlib.net/) (tested on 1.2.8, libPNG's dependency)
 
 ### License
-[GNU GPLv2](LICENSE).
+See [LICENSE](LICENSE) file.
 
 ### Examples of usage
-You can find examples of this library's usage in `example` directory or [here](https://github.com/RippeR37/Utility-Library/wiki/ExampleProjects).
+You can find examples of this library's usage in `example` directory or [here](https://github.com/RippeR37/GLUL/wiki/ExampleProjects).
 
 ### Author
 Most of the code is written completly by me. Some parts may be inspired by publicly shared code on websites like Stack Overflow. Unfortunatly that code traveled with me between projects for so long that i cannot remember every detail. I would happily mention you here though, so please inform me of any usage of your work.

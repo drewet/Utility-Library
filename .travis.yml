@@ -5,8 +5,10 @@ compiler:
   - clang
 
 env:
-  - TASK=build
-  - TASK=analyze
+  matrix:
+    - TASK=build
+    - TASK=unit_tests
+    - TASK=analyze
 
 matrix:
   allow_failures:
@@ -41,7 +43,17 @@ before_install:
   - sudo apt-get install cppcheck
 
   # LINK GCC TO GCC-5
-  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 90
+  - sudo update-alternatives --install /usr/bin/gcc  gcc  /usr/bin/gcc-5  90
+  - sudo update-alternatives --install /usr/bin/g++  g++  /usr/bin/g++-5  90
+  - sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-5 90
+
+  # INSTALL GTEST (workaround)
+  - sudo apt-get install libgtest-dev
+  - cd /usr/src/gtest
+  - sudo cmake .
+  - sudo make
+  - sudo mv libgtest* /usr/lib/
+  - cd "${TRAVIS_BUILD_DIR}"
 
   # DISPLAY SOFTWARE VERSIONS
   - $CXX --version
@@ -52,10 +64,15 @@ before_install:
 install:
   # INSTALL DEPENDENCIES
   ######################
+  
   - DEPENDENCY_GLM_BRANCH="0.9.5"
   - DEPENDENCY_GLEW_VERSION="1.13.0"
   - DEPENDENCY_FT2_VERSION="2.6"
   - DEPENDENCY_FT2_VERSION_FILE="26"
+
+  # CREATE DIRECTORY FOR EXTERNAL LIBS
+  - mkdir external
+  - cd external
 
   # DOWNLOAD & INSTALL GLM LIBRARY
   - git clone -b $DEPENDENCY_GLM_BRANCH https://github.com/g-truc/glm.git glm
@@ -87,10 +104,27 @@ install:
   - sudo make install
   - cd ..
 
+  # LEAVE EXTERNAL LIB DIRECTORY
+  - cd ..
+
+  # CONFIGURE INSTALLED DEPENDENCIES
+  - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
+  - sudo ldconfig
+
+  # CREATE FAKE DISPLAY
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
+
+  # INSTALL CPP-COVERALLS
+  - sudo pip install requests[security]
+  - sudo pip install cpp-coveralls
+
+
 before_script:
   - echo "ENVIRONMENT VARIABLES:"
   - echo "CXX = $CXX"
   - echo "TASK = $TASK"
+
 
 script:
   # TASK = build
@@ -104,3 +138,80 @@ script:
   # TASK = analyze (Clang-3.6)
   - if [ "$TASK" = "analyze" ] && [ "$CXX" = "clang++-3.6" ]; then scan-build-3.6 cmake .; fi
   - if [ "$TASK" = "analyze" ] && [ "$CXX" = "clang++-3.6" ]; then scan-build-3.6 --status-bugs -v make -j 8; fi
+
+  # TASK = unit_tests
+  - if [ "$TASK" = "unit_tests" ]; then cmake -DBUILD_TESTS=ON .; fi
+  - if [ "$TASK" = "unit_tests" ]; then make; fi
+  - if [ "$TASK" = "unit_tests" ]; then cd tests/bin/; fi
+  - if [ "$TASK" = "unit_tests" ]; then ./GLUL_Unit_Tests; fi
+  - if [ "$TASK" = "unit_tests" ]; then cd ../../; fi
+
+
+after_success:
+  # TASK = unit_tests
+  - if [ "$TASK" = "unit_tests" ] && [ "$CXX" = "g++-5" ]; then cd tests/bin/; fi
+  - if [ "$TASK" = "unit_tests" ] && [ "$CXX" = "g++-5" ]; then coveralls --verbose --root ../../ -E ".*external.*" -E ".*CMakeFiles.*" -E ".*tests/.*.cpp.*" -E ".*examples.*" -E ".*bin.*" -E ".*project.*"; fi
+  - if [ "$TASK" = "unit_tests" ] && [ "$CXX" = "g++-5" ]; then cd ../../; fi
+
+
+before_deploy:
+  - echo "Deploying..."
+
+  # Setup variables
+  - DEPLOY_NAME="GLUL-${CC}-${TRAVIS_BRANCH}-latest"
+  - DEPLOY_NAME_TAG="GLUL-${TRAVIS_TAG}-${CC}"
+  - DEPLOY_NAME_FILE="${DEPLOY_NAME}.tar.gz"
+  - DEPLOY_NAME_FILE_TAG="${DEPLOY_NAME_TAG}.tar.gz"
+  - DEPLOY_DIR_1="deploy"
+  - DEPLOY_DIR_2="${DEPLOY_DIR_1}/ubuntu"
+  - DEPLOY_DIR_FULL="${DEPLOY_DIR_2}/${DEPLOY_NAME}"
+  - DEPLOY_DATE="`date`"
+  
+  # Create directories
+  - mkdir "${DEPLOY_DIR_1}"
+  - mkdir "${DEPLOY_DIR_2}"
+  - mkdir "${DEPLOY_DIR_FULL}"
+
+  # Copy files to directories
+  - cp -r bin             "${DEPLOY_DIR_FULL}/"
+  - cp -r examples        "${DEPLOY_DIR_FULL}/"
+  - cp -r include         "${DEPLOY_DIR_FULL}/"
+  - cp -r lib             "${DEPLOY_DIR_FULL}/"
+  - cp -r src             "${DEPLOY_DIR_FULL}/"
+  - cp -r tests           "${DEPLOY_DIR_FULL}/"
+  - cp -r CMakeLists.txt  "${DEPLOY_DIR_FULL}/"
+  - cp -r LICENSE         "${DEPLOY_DIR_FULL}/"
+  - cp -r README.md       "${DEPLOY_DIR_FULL}/"
+  
+  # Add build info
+  - echo "Build id - ${TRAVIS_BUILD_ID} (#${TRAVIS_BUILD_NUMBER})" > "${DEPLOY_DIR_FULL}/BuildInfo.txt"
+  - echo "Branch - ${TRAVIS_BRANCH}" >> "${DEPLOY_DIR_FULL}/BuildInfo.txt"
+  - echo "Date of build - ${DEPLOY_DATE}" >> "${DEPLOY_DIR_FULL}/BuildInfo.txt"
+  
+  # Create package to upload
+  - cd deploy/ubuntu
+  - GZIP=-9 tar -cvzf "${DEPLOY_NAME_FILE}" "${DEPLOY_NAME}/"
+  - cd ../..
+  - echo "Package ${DEPLOY_NAME_FILE} created..."
+
+  # If this is tagged commit, change package to TAG version and deploy it only as such
+  - if [ -n "${TRAVIS_TAG}" ]; then cd deploy/ubuntu; fi
+  - if [ -n "${TRAVIS_TAG}" ]; then mv "${DEPLOY_NAME_FILE}" "${DEPLOY_NAME_FILE_TAG}"; fi
+  - if [ -n "${TRAVIS_TAG}" ]; then cd ../..; fi
+  - if [ -n "${TRAVIS_TAG}" ]; then echo "TAG package ${DEPLOY_NAME_FILE} created..."; fi
+
+
+deploy:
+  provider: bintray
+  user: "ripper37"
+  file: ".bintray.json"
+  skip_cleanup: true
+  key:
+    secure: QDOTrVuXKR8IjNYmDqN0RfPotTaPDZ8YibuNu92u5QmBczjCko1XerbziYQ7AH7vHAZ/ESH+5iSj9F/h07i9v3SzkQsetj7BUryTdSpf7EVG7xWzoqkOEPrHL1G7yRVtoqZxKe4wwmAAb40l5lCc9NJQn8h3hkvsNdqRi2E+OGculk1GTAifvXc0n1ahe9eBQhtc6tf9zrgdUu3As68wvAI4x/muCm2nwJ/JPRxESB/uPnBwOAZC/cbNd2+Fv9x+Ii+VqJ5baf/+MeIYJT0mKZ8u0QtX1a2B0LHeH/4l2UAqi+lsE3Gmj5b95jKXPAB7aQfuKA1rgno9SmKp7VaEUhuOLkHvqLusv2MT+SWLA6ypFdYeVC9EFw54ztAsC33AghVm4AUl4YXxR7YGir1Zmi62EWbpAAuY5ZGpnvXpGpceIBNkgX/h0hFTi+PkCMuwJ2L1Dl/GVJSl1w7olXJ8hcn1gA+9vmd8TWmeKeGaTpAw6Isl0LMFmYIREVUXeOJ8kI+NND6Yh8NambnC2nHclRKwS1o53S/sE8RqmNHLpD51tgIi0ebwR4ihfFMtzNBnoWQHnNi8q+7/L2cWiFZClLvsUHXJFb7bPJ1V/yPBJrJ6sjtCUamLLy2R76fWzb47MnTk4jJOr3d+Ck/N5GQZNXcVlYCkRjzubtvkhwt9wmc=
+  on:
+    all_branches: true
+    condition: $TASK = "build"
+
+
+after_deploy:
+  - echo "Deployed!"
